@@ -1,27 +1,56 @@
-# jupyterlab_mmd_to_png_extension
+# JupyterLab Mermaid to PNG Extension
 
-[![Github Actions Status](/workflows/Build/badge.svg)](/actions/workflows/build.yml)
+![GitHub Actions](https://github.com/stellarshenson/jupyterlab_mmd_to_png_extension/actions/workflows/build.yml/badge.svg)
+[![npm version](https://badge.fury.io/js/jupyterlab_mmd_to_png_extension.svg)](https://www.npmjs.com/package/jupyterlab_mmd_to_png_extension)
+[![PyPI version](https://badge.fury.io/py/jupyterlab-mmd-to-png-extension.svg)](https://pypi.org/project/jupyterlab-mmd-to-png-extension/)
+![PyPI downloads](https://img.shields.io/pypi/dm/jupyterlab-mmd-to-png-extension?label=PyPI%20downloads)
+![JL4 Ready](https://img.shields.io/badge/Jupyterlab%204-ready-blue)
 
-JupyterLab extension for markdown files with Mermaid diagrams - allows copying Mermaid diagrams as PNG images directly to clipboard.
+JupyterLab extension enabling export of Mermaid diagrams from markdown files to high-resolution PNG images with configurable DPI settings.
+
+![Extension Screenshot](.resources/screenshot.png)
 
 ## Features
 
-- **Self-contained**: No external dependencies - all rendering happens client-side in the browser
-- **Context menu integration**: Right-click inside any Mermaid code block to copy as PNG
-- **Command palette**: Access via command palette under "Markdown" category
-- **High quality**: Renders diagrams at 2x resolution for crisp output
-- **Zero configuration**: Works out of the box with no setup required
-
-This extension uses Mermaid.js for client-side diagram rendering and HTML5 Canvas API for PNG conversion - no server-side processing needed.
+- Export Mermaid diagrams as PNG with configurable DPI (72-1200, default 300)
+- Context menu integration in both editor and viewer modes
+- Transparent backgrounds for exported images
+- Deterministic filenames based on source file and diagram content
+- Self-contained client-side rendering (no external dependencies)
+- Zero configuration required
 
 ## Requirements
 
 - JupyterLab >= 4.0.0
 
+## Installation
+
+Install via pip:
+
+```bash
+pip install jupyterlab_mmd_to_png_extension
+```
+
+Install via npm (for development):
+
+```bash
+npm install jupyterlab_mmd_to_png_extension
+```
+
+After installation, restart JupyterLab or refresh the browser.
+
 ## Usage
 
-1. Open a markdown file (.md) in JupyterLab
-2. Create a Mermaid diagram using code fence syntax:
+1. Open a markdown file containing Mermaid diagrams
+2. Right-click on any rendered Mermaid diagram
+3. Select "Copy Mermaid Diagram as PNG"
+4. The PNG is downloaded with filename: `mermaid-<filename>-<hash>.png`
+
+**Configure DPI**: Settings -> Advanced Settings Editor -> Mermaid to PNG Extension -> Target DPI (default: 300, maximum: 1200)
+
+## Example
+
+Create a Mermaid diagram in markdown:
 
 ```markdown
 ```mermaid
@@ -31,17 +60,7 @@ graph TD
 ```
 ```
 
-3. Place cursor anywhere inside the Mermaid code block
-4. Right-click and select "Copy Mermaid Diagram as PNG"
-5. Paste the PNG image into any application that accepts images
-
-## Install
-
-To install the extension, execute:
-
-```bash
-pip install jupyterlab_mmd_to_png_extension
-```
+Right-click the rendered diagram and export as PNG at your configured DPI setting.
 
 ## Uninstall
 
@@ -160,4 +179,3 @@ More information are provided within the [ui-tests](./ui-tests/README.md) README
 ### Packaging the extension
 
 See [RELEASE](RELEASE.md)
-# jupyterlab_mmd_to_png_extension

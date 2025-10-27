@@ -7,11 +7,11 @@
   "properties": {
     "targetDPI": {
       "title": "Target DPI",
-      "description": "Resolution for exported PNG images (dots per inch). Higher values produce larger, higher-quality images suitable for printing. Standard values: 96 (screen), 150 (draft print), 300 (standard print), 600 (high-quality print), 1200 (professional print), 2400-3000 (ultra high-resolution).",
+      "description": "Resolution for exported PNG images (dots per inch). Higher values produce larger, higher-quality images suitable for printing. Standard values: 96 (screen), 150 (draft print), 300 (standard print), 600 (high-quality print), 1200 (professional print).",
       "type": "number",
-      "default": 600,
+      "default": 300,
       "minimum": 72,
-      "maximum": 3000
+      "maximum": 1200
     }
   },
   "additionalProperties": false

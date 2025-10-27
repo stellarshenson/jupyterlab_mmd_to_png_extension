@@ -156,14 +156,25 @@ async function svgToPng(svgElement: SVGElement, targetDPI: number = 600, sourceI
   console.log('[MMD Extension] Final dimensions for canvas:', width, 'x', height);
 
   // Create high-resolution canvas at target DPI
-  // Assuming source is 96 DPI (standard screen resolution), calculate scale factor
-  const sourceDPI = 96;
+  // SVG native resolution calibrated to match Adobe converter output
+  const sourceDPI = 11.5;
   const scale = targetDPI / sourceDPI;
-  console.log('[MMD Extension] svgToPng - Target DPI:', targetDPI, 'Scale factor:', scale);
 
   const canvas = document.createElement('canvas');
   canvas.width = width * scale;
   canvas.height = height * scale;
+
+  // Calculate expected print dimensions
+  // const printWidthInches = canvas.width / targetDPI;
+  // const printHeightInches = canvas.height / targetDPI;
+
+  // console.log('[MMD Extension] svgToPng - Configuration:');
+  // console.log('  Source dimensions:', width, 'x', height, 'pixels');
+  // console.log('  Source DPI:', sourceDPI);
+  // console.log('  Target DPI:', targetDPI);
+  // console.log('  Scale factor:', scale);
+  // console.log('  Output dimensions:', canvas.width, 'x', canvas.height, 'pixels');
+  // console.log('  Print size at', targetDPI, 'DPI:', printWidthInches.toFixed(2), 'x', printHeightInches.toFixed(2), 'inches');
 
   const ctx = canvas.getContext('2d', { alpha: true });
   if (!ctx) {
@@ -220,14 +231,25 @@ async function imgToPng(imgElement: HTMLImageElement, targetDPI: number = 600): 
   console.log('[MMD Extension] imgToPng - Using dimensions:', width, 'x', height);
 
   // Create high-resolution canvas at target DPI
-  // Assuming source is 96 DPI (standard screen resolution), calculate scale factor
-  const sourceDPI = 96;
+  // SVG native resolution calibrated to match Adobe converter output
+  const sourceDPI = 11.5;
   const scale = targetDPI / sourceDPI;
-  console.log('[MMD Extension] imgToPng - Target DPI:', targetDPI, 'Scale factor:', scale);
 
   const canvas = document.createElement('canvas');
   canvas.width = width * scale;
   canvas.height = height * scale;
+
+  // Calculate expected print dimensions
+  // const printWidthInches = canvas.width / targetDPI;
+  // const printHeightInches = canvas.height / targetDPI;
+
+  // console.log('[MMD Extension] imgToPng - Configuration:');
+  // console.log('  Source dimensions:', width, 'x', height, 'pixels');
+  // console.log('  Source DPI:', sourceDPI);
+  // console.log('  Target DPI:', targetDPI);
+  // console.log('  Scale factor:', scale);
+  // console.log('  Output dimensions:', canvas.width, 'x', canvas.height, 'pixels');
+  // console.log('  Print size at', targetDPI, 'DPI:', printWidthInches.toFixed(2), 'x', printHeightInches.toFixed(2), 'inches');
 
   const ctx = canvas.getContext('2d', { alpha: true });
   if (!ctx) {
@@ -267,9 +289,23 @@ async function copyPngToClipboard(blob: Blob): Promise<void> {
 }
 
 /**
- * Generate filename for downloaded PNG based on source file
+ * Generate simple hash from string (for deterministic filenames)
  */
-function generateFilename(app: JupyterFrontEnd): string {
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  // Convert to base36 and take first 8 characters
+  return Math.abs(hash).toString(36).substring(0, 8).padStart(8, '0');
+}
+
+/**
+ * Generate filename for downloaded PNG based on source file and content hash
+ */
+function generateFilename(app: JupyterFrontEnd, content: string): string {
   // Try to get current document name
   const widget = app.shell.currentWidget;
   let baseName = 'diagram';
@@ -283,10 +319,10 @@ function generateFilename(app: JupyterFrontEnd): string {
     }
   }
 
-  // Generate short UUID (8 characters)
-  const uuid = Math.random().toString(36).substring(2, 10);
+  // Generate deterministic hash from content
+  const contentHash = simpleHash(content);
 
-  return `mermaid-${baseName}-${uuid}.png`;
+  return `mermaid-${baseName}-${contentHash}.png`;
 }
 
 /**
@@ -570,7 +606,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
             console.log('[MMD Extension] Download: Found Mermaid source, rendering...');
             const svgElement = await renderMermaidToSvg(mermaidSource);
             const pngBlob = await svgToPng(svgElement, targetDPI);
-            const filename = generateFilename(app);
+            const filename = generateFilename(app, mermaidSource);
             console.log('[MMD Extension] Download: Generated filename:', filename);
             downloadPng(pngBlob, filename);
             console.log('[MMD Extension] Download: Mermaid diagram downloaded (editor mode)');
@@ -589,8 +625,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
               if (src.startsWith('data:image/svg+xml')) {
                 console.log('[MMD Extension] Download: Converting IMG directly to PNG...');
+
+                // Extract SVG content for hashing
+                const svgData = decodeURIComponent(src.replace('data:image/svg+xml,', ''));
+
                 const pngBlob = await imgToPng(imgElement, targetDPI);
-                const filename = generateFilename(app);
+                const filename = generateFilename(app, svgData);
                 console.log('[MMD Extension] Download: Generated filename:', filename);
                 downloadPng(pngBlob, filename);
                 console.log('[MMD Extension] Download: Mermaid diagram downloaded (viewer IMG mode)');
@@ -602,8 +642,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
             const svgElement = target.closest('svg') || target.querySelector('svg');
             if (svgElement) {
               console.log('[MMD Extension] Download: Converting inline SVG to PNG...');
+
+              // Serialize SVG for hashing
+              const svgData = new XMLSerializer().serializeToString(svgElement as SVGElement);
+
               const pngBlob = await svgToPng(svgElement as SVGElement, targetDPI);
-              const filename = generateFilename(app);
+              const filename = generateFilename(app, svgData);
               console.log('[MMD Extension] Download: Generated filename:', filename);
               downloadPng(pngBlob, filename);
               console.log('[MMD Extension] Download: Mermaid diagram downloaded (viewer SVG mode)');
