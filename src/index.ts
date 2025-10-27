@@ -1,0 +1,586 @@
+import {
+  JupyterFrontEnd,
+  JupyterFrontEndPlugin
+} from '@jupyterlab/application';
+
+import { ICommandPalette } from '@jupyterlab/apputils';
+import { FileEditor } from '@jupyterlab/fileeditor';
+
+import mermaid from 'mermaid';
+
+// Log immediately on module load
+console.log('[MMD Extension] Module loaded, mermaid import:', typeof mermaid);
+
+/**
+ * Extract Mermaid source from current cursor position in editor
+ */
+function getMermaidSourceAtCursor(editor: FileEditor): string | null {
+  const model = editor.model;
+  if (!model) {
+    return null;
+  }
+
+  const cursor = editor.editor.getCursorPosition();
+  const text = model.sharedModel.getSource();
+  const lines = text.split('\n');
+
+  // Find the Mermaid code block containing the cursor
+  let inMermaidBlock = false;
+  let mermaidStart = -1;
+  let mermaidEnd = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    if (line.startsWith('```mermaid')) {
+      inMermaidBlock = true;
+      mermaidStart = i;
+    } else if (inMermaidBlock && line.startsWith('```')) {
+      mermaidEnd = i;
+
+      // Check if cursor is within this block
+      if (cursor.line >= mermaidStart && cursor.line <= mermaidEnd) {
+        // Extract Mermaid source (excluding fence markers)
+        const mermaidLines = lines.slice(mermaidStart + 1, mermaidEnd);
+        return mermaidLines.join('\n');
+      }
+
+      inMermaidBlock = false;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Check if current cursor position is in a Mermaid code block
+ */
+function isInMermaidBlock(editor: FileEditor): boolean {
+  return getMermaidSourceAtCursor(editor) !== null;
+}
+
+/**
+ * Render Mermaid source to SVG element
+ */
+async function renderMermaidToSvg(source: string): Promise<SVGElement> {
+  // Initialize mermaid with configuration
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'default',
+    securityLevel: 'loose'
+  });
+
+  // Generate unique ID for the diagram
+  const id = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  // Render the diagram
+  const { svg } = await mermaid.render(id, source);
+
+  // Parse SVG string to element
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svg, 'image/svg+xml');
+  const svgElement = doc.documentElement as unknown as SVGElement;
+
+  return svgElement;
+}
+
+/**
+ * Convert SVG element to PNG blob
+ */
+async function svgToPng(svgElement: SVGElement, sourceImgElement?: HTMLImageElement): Promise<Blob> {
+  console.log('[MMD Extension] svgToPng - SVG element:', svgElement.tagName);
+  console.log('[MMD Extension] svgToPng - width attr:', svgElement.getAttribute('width'));
+  console.log('[MMD Extension] svgToPng - height attr:', svgElement.getAttribute('height'));
+  console.log('[MMD Extension] svgToPng - viewBox attr:', svgElement.getAttribute('viewBox'));
+  console.log('[MMD Extension] svgToPng - style attr:', svgElement.getAttribute('style'));
+
+  if (sourceImgElement) {
+    console.log('[MMD Extension] svgToPng - IMG naturalWidth:', sourceImgElement.naturalWidth);
+    console.log('[MMD Extension] svgToPng - IMG naturalHeight:', sourceImgElement.naturalHeight);
+    console.log('[MMD Extension] svgToPng - IMG width:', sourceImgElement.width);
+    console.log('[MMD Extension] svgToPng - IMG height:', sourceImgElement.height);
+  }
+
+  // Get SVG dimensions - prioritize element attributes over getBBox
+  let width = 800;
+  let height = 600;
+
+  // If we have the source IMG element, use its natural dimensions (most reliable for viewer mode)
+  if (sourceImgElement && sourceImgElement.naturalWidth && sourceImgElement.naturalHeight) {
+    width = sourceImgElement.naturalWidth;
+    height = sourceImgElement.naturalHeight;
+    console.log('[MMD Extension] Using IMG naturalWidth/Height:', width, 'x', height);
+  } else {
+    // Try to get from width/height attributes
+    const widthAttr = svgElement.getAttribute('width');
+    const heightAttr = svgElement.getAttribute('height');
+
+    if (widthAttr && heightAttr) {
+      // Remove any unit suffixes (px, em, etc.)
+      width = parseFloat(widthAttr.replace(/[^\d.]/g, ''));
+      height = parseFloat(heightAttr.replace(/[^\d.]/g, ''));
+      console.log('[MMD Extension] Using SVG width/height attributes:', width, 'x', height);
+    } else {
+      // Try viewBox
+      const viewBox = svgElement.getAttribute('viewBox');
+      if (viewBox) {
+        const parts = viewBox.split(/[\s,]+/);
+        console.log('[MMD Extension] ViewBox parts:', parts);
+        if (parts.length === 4) {
+          width = parseFloat(parts[2]);
+          height = parseFloat(parts[3]);
+          console.log('[MMD Extension] Using SVG viewBox dimensions:', width, 'x', height);
+        }
+      } else {
+        // Fall back to getBBox - but need to temporarily add to DOM
+        try {
+          svgElement.style.position = 'absolute';
+          svgElement.style.visibility = 'hidden';
+          document.body.appendChild(svgElement);
+
+          const graphicsElement = svgElement as unknown as SVGGraphicsElement;
+          const bbox = graphicsElement.getBBox();
+          width = bbox.width || 800;
+          height = bbox.height || 600;
+          console.log('[MMD Extension] Using getBBox dimensions:', width, 'x', height, 'bbox:', bbox);
+
+          document.body.removeChild(svgElement);
+        } catch (e) {
+          console.error('[MMD Extension] Error getting getBBox:', e);
+        }
+      }
+    }
+  }
+
+  console.log('[MMD Extension] Final dimensions for canvas:', width, 'x', height);
+
+  // Create high-resolution canvas at 300 DPI
+  // Assuming source is 96 DPI (standard screen resolution), scale = 300/96 ≈ 3.125
+  const canvas = document.createElement('canvas');
+  const scale = 3.125; // 300 DPI (from 96 DPI source)
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Failed to get canvas context');
+  }
+
+  // Transparent background - canvas is transparent by default
+
+  // Scale for high resolution
+  ctx.scale(scale, scale);
+
+  // Convert SVG to data URL (using data URI instead of blob URL to avoid CORS/tainted canvas)
+  const svgData = new XMLSerializer().serializeToString(svgElement);
+  const base64Data = btoa(unescape(encodeURIComponent(svgData)));
+  const dataUrl = `data:image/svg+xml;base64,${base64Data}`;
+
+  // Load SVG as image
+  const img = new Image();
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+
+  // Draw image to canvas
+  ctx.drawImage(img, 0, 0);
+
+  // Convert canvas to PNG blob
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (blob) {
+        resolve(blob);
+      } else {
+        reject(new Error('Failed to convert canvas to blob'));
+      }
+    }, 'image/png');
+  });
+}
+
+/**
+ * Convert IMG element directly to PNG (simpler approach for data URIs)
+ */
+async function imgToPng(imgElement: HTMLImageElement): Promise<Blob> {
+  console.log('[MMD Extension] imgToPng - IMG naturalWidth:', imgElement.naturalWidth);
+  console.log('[MMD Extension] imgToPng - IMG naturalHeight:', imgElement.naturalHeight);
+  console.log('[MMD Extension] imgToPng - IMG width:', imgElement.width);
+  console.log('[MMD Extension] imgToPng - IMG height:', imgElement.height);
+
+  // Use natural dimensions (actual image size) or displayed dimensions
+  const width = imgElement.naturalWidth || imgElement.width || 800;
+  const height = imgElement.naturalHeight || imgElement.height || 600;
+
+  console.log('[MMD Extension] imgToPng - Using dimensions:', width, 'x', height);
+
+  // Create high-resolution canvas at 300 DPI
+  // Assuming source is 96 DPI (standard screen resolution), scale = 300/96 ≈ 3.125
+  const canvas = document.createElement('canvas');
+  const scale = 3.125; // 300 DPI (from 96 DPI source)
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Failed to get canvas context');
+  }
+
+  // Transparent background - no fill needed
+
+  // Scale and draw image
+  ctx.scale(scale, scale);
+  ctx.drawImage(imgElement, 0, 0, width, height);
+
+  console.log('[MMD Extension] imgToPng - Canvas dimensions:', canvas.width, 'x', canvas.height);
+
+  // Convert to PNG blob
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (blob) {
+        console.log('[MMD Extension] imgToPng - Blob size:', blob.size);
+        resolve(blob);
+      } else {
+        reject(new Error('Failed to convert canvas to blob'));
+      }
+    }, 'image/png');
+  });
+}
+
+/**
+ * Copy PNG blob to clipboard
+ */
+async function copyPngToClipboard(blob: Blob): Promise<void> {
+  const clipboardItem = new ClipboardItem({ 'image/png': blob });
+  await navigator.clipboard.write([clipboardItem]);
+}
+
+/**
+ * Download PNG blob as file
+ */
+function downloadPng(blob: Blob, filename: string = 'mermaid-diagram.png'): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Initialization data for the jupyterlab_mmd_to_png_extension extension.
+ */
+const plugin: JupyterFrontEndPlugin<void> = {
+  id: 'jupyterlab_mmd_to_png_extension:plugin',
+  description:
+    'Jupyterlab extension for markdown files with Mermaid diagrams to allow copying of mermaid diagrams as PNG images',
+  autoStart: true,
+  optional: [ICommandPalette],
+  activate: (app: JupyterFrontEnd, palette: ICommandPalette | null) => {
+    console.log('[MMD Extension] ===== ACTIVATION STARTED =====');
+    console.log('[MMD Extension] App:', app);
+    console.log('[MMD Extension] Palette:', palette);
+    console.log('[MMD Extension] Mermaid available:', typeof mermaid);
+
+    const { commands, contextMenu } = app;
+    console.log('[MMD Extension] Commands registry:', commands);
+    console.log('[MMD Extension] Context menu:', contextMenu);
+
+    // Track last right-click target for viewer mode
+    let lastContextMenuTarget: EventTarget | null = null;
+    document.addEventListener('contextmenu', (e: MouseEvent) => {
+      lastContextMenuTarget = e.target;
+      console.log('[MMD Extension] Context menu target:', e.target);
+    });
+
+    // Command to copy Mermaid diagram as PNG
+    const copyMermaidCommand = 'mermaid:copy-as-png';
+    console.log('[MMD Extension] Registering command:', copyMermaidCommand);
+
+    commands.addCommand(copyMermaidCommand, {
+      label: 'Copy Mermaid Diagram as PNG',
+      caption: 'Copy the Mermaid diagram at cursor as PNG image',
+      isEnabled: () => {
+        console.log('[MMD Extension] isEnabled called');
+        const widget = app.shell.currentWidget;
+
+        // MODE 1: Editor mode - check for FileEditor with cursor in Mermaid block
+        const candidate = (widget as any)?.content || widget;
+        if (candidate?.model && candidate?.editor?.getCursorPosition) {
+          console.log('[MMD Extension] Editor mode detected');
+          try {
+            const inBlock = isInMermaidBlock(candidate as FileEditor);
+            console.log('[MMD Extension] In Mermaid block:', inBlock);
+            if (inBlock) {
+              return true;
+            }
+          } catch (e) {
+            console.error('[MMD Extension] Error checking Mermaid block:', e);
+          }
+        }
+
+        // MODE 2: Viewer mode - check if right-clicked on SVG or IMG with SVG data URI
+        console.log('[MMD Extension] Checking viewer mode, last target:', lastContextMenuTarget);
+        if (lastContextMenuTarget) {
+          const target = lastContextMenuTarget as HTMLElement;
+          console.log('[MMD Extension] Target tag:', target.tagName);
+          console.log('[MMD Extension] Target className:', target.className);
+          console.log('[MMD Extension] Target id:', target.id);
+
+          // Check for IMG tag with SVG data URI (JupyterLab's Mermaid rendering)
+          if (target.tagName === 'IMG') {
+            const imgElement = target as HTMLImageElement;
+            const src = imgElement.src || '';
+            console.log('[MMD Extension] IMG src starts with data:image/svg:', src.startsWith('data:image/svg+xml'));
+            if (src.startsWith('data:image/svg+xml')) {
+              console.log('[MMD Extension] Found Mermaid as IMG with SVG data URI');
+              return true;
+            }
+          }
+
+          // Check if target is inline SVG or contains/is contained by SVG
+          const svgElement = target.closest('svg') || target.querySelector('svg');
+          console.log('[MMD Extension] Found inline SVG in viewer:', !!svgElement);
+
+          if (svgElement) {
+            console.log('[MMD Extension] SVG id:', svgElement.id);
+            console.log('[MMD Extension] SVG aria-roledescription:', svgElement.getAttribute('aria-roledescription'));
+            console.log('[MMD Extension] SVG closest .jp-RenderedMarkdown:', !!svgElement.closest('.jp-RenderedMarkdown'));
+
+            // Check if it's a Mermaid diagram (has mermaid-related attributes or classes)
+            const isMermaid = svgElement.id?.includes('mermaid') ||
+                             svgElement.getAttribute('aria-roledescription') === 'mermaid' ||
+                             svgElement.closest('.jp-RenderedMarkdown') !== null;
+            console.log('[MMD Extension] Is Mermaid SVG:', isMermaid);
+            return isMermaid;
+          }
+        }
+
+        console.log('[MMD Extension] Not enabled - no editor or SVG found');
+        return false;
+      },
+      execute: async () => {
+        console.log('[MMD Extension] Execute called');
+        const widget = app.shell.currentWidget;
+
+        try {
+          // MODE 1: Editor mode - extract source and render
+          const editor = (widget as any)?.content || widget;
+          if (editor?.model && editor?.editor?.getCursorPosition) {
+            console.log('[MMD Extension] Editor mode execution');
+            const mermaidSource = getMermaidSourceAtCursor(editor as FileEditor);
+            if (!mermaidSource) {
+              console.error('[MMD Extension] No Mermaid diagram found at cursor position');
+              return;
+            }
+
+            console.log('[MMD Extension] Found Mermaid source, rendering...');
+            const svgElement = await renderMermaidToSvg(mermaidSource);
+            const pngBlob = await svgToPng(svgElement);
+            await copyPngToClipboard(pngBlob);
+            console.log('[MMD Extension] Mermaid diagram copied to clipboard as PNG (editor mode)');
+            return;
+          }
+
+          // MODE 2: Viewer mode - convert already-rendered SVG or IMG with SVG data URI
+          console.log('[MMD Extension] Viewer mode execution');
+          if (lastContextMenuTarget) {
+            const target = lastContextMenuTarget as HTMLElement;
+
+            // Handle IMG tag with SVG data URI
+            if (target.tagName === 'IMG') {
+              const imgElement = target as HTMLImageElement;
+              const src = imgElement.src || '';
+
+              if (src.startsWith('data:image/svg+xml')) {
+                console.log('[MMD Extension] Converting IMG directly to PNG...');
+                const pngBlob = await imgToPng(imgElement);
+                await copyPngToClipboard(pngBlob);
+                console.log('[MMD Extension] Mermaid diagram copied to clipboard as PNG (viewer IMG mode)');
+                return;
+              }
+            }
+
+            // Handle inline SVG element
+            const svgElement = target.closest('svg') || target.querySelector('svg');
+            if (svgElement) {
+              console.log('[MMD Extension] Converting inline SVG to PNG...');
+              const pngBlob = await svgToPng(svgElement as SVGElement);
+              await copyPngToClipboard(pngBlob);
+              console.log('[MMD Extension] Mermaid diagram copied to clipboard as PNG (viewer SVG mode)');
+              return;
+            }
+          }
+
+          console.error('[MMD Extension] No Mermaid diagram found');
+        } catch (error) {
+          console.error('[MMD Extension] Error converting Mermaid to PNG:', error);
+        }
+      }
+    });
+
+    console.log('[MMD Extension] Command registered successfully');
+
+    // Add to context menu once with broad selector - isEnabled() handles specifics
+    console.log('[MMD Extension] Adding context menu item');
+    contextMenu.addItem({
+      command: copyMermaidCommand,
+      selector: 'body',  // Broad selector, isEnabled() will filter
+      rank: 10
+    });
+    console.log('[MMD Extension] Context menu item added');
+
+    // Add to command palette if available
+    if (palette) {
+      console.log('[MMD Extension] Adding to command palette');
+      palette.addItem({
+        command: copyMermaidCommand,
+        category: 'Markdown'
+      });
+      console.log('[MMD Extension] Added to command palette');
+    } else {
+      console.log('[MMD Extension] No palette available');
+    }
+
+    // Command to download Mermaid diagram as PNG
+    const downloadMermaidCommand = 'mermaid:download-as-png';
+    console.log('[MMD Extension] Registering download command:', downloadMermaidCommand);
+
+    commands.addCommand(downloadMermaidCommand, {
+      label: 'Download Mermaid Diagram as PNG',
+      caption: 'Download the Mermaid diagram at cursor as PNG file',
+      isEnabled: () => {
+        console.log('[MMD Extension] Download isEnabled called');
+        const widget = app.shell.currentWidget;
+
+        // MODE 1: Editor mode - check for FileEditor with cursor in Mermaid block
+        const candidate = (widget as any)?.content || widget;
+        if (candidate?.model && candidate?.editor?.getCursorPosition) {
+          console.log('[MMD Extension] Download: Editor mode detected');
+          try {
+            const inBlock = isInMermaidBlock(candidate as FileEditor);
+            console.log('[MMD Extension] Download: In Mermaid block:', inBlock);
+            if (inBlock) {
+              return true;
+            }
+          } catch (e) {
+            console.error('[MMD Extension] Download: Error checking Mermaid block:', e);
+          }
+        }
+
+        // MODE 2: Viewer mode - check if right-clicked on SVG or IMG with SVG data URI
+        console.log('[MMD Extension] Download: Checking viewer mode, last target:', lastContextMenuTarget);
+        if (lastContextMenuTarget) {
+          const target = lastContextMenuTarget as HTMLElement;
+
+          // Check for IMG tag with SVG data URI (JupyterLab's Mermaid rendering)
+          if (target.tagName === 'IMG') {
+            const imgElement = target as HTMLImageElement;
+            const src = imgElement.src || '';
+            if (src.startsWith('data:image/svg+xml')) {
+              console.log('[MMD Extension] Download: Found Mermaid as IMG with SVG data URI');
+              return true;
+            }
+          }
+
+          // Check if target is inline SVG or contains/is contained by SVG
+          const svgElement = target.closest('svg') || target.querySelector('svg');
+          if (svgElement) {
+            const isMermaid = svgElement.id?.includes('mermaid') ||
+                             svgElement.getAttribute('aria-roledescription') === 'mermaid' ||
+                             svgElement.closest('.jp-RenderedMarkdown') !== null;
+            return isMermaid;
+          }
+        }
+
+        console.log('[MMD Extension] Download: Not enabled');
+        return false;
+      },
+      execute: async () => {
+        console.log('[MMD Extension] Download execute called');
+        const widget = app.shell.currentWidget;
+
+        try {
+          // MODE 1: Editor mode - extract source and render
+          const editor = (widget as any)?.content || widget;
+          if (editor?.model && editor?.editor?.getCursorPosition) {
+            console.log('[MMD Extension] Download: Editor mode execution');
+            const mermaidSource = getMermaidSourceAtCursor(editor as FileEditor);
+            if (!mermaidSource) {
+              console.error('[MMD Extension] Download: No Mermaid diagram found at cursor position');
+              return;
+            }
+
+            console.log('[MMD Extension] Download: Found Mermaid source, rendering...');
+            const svgElement = await renderMermaidToSvg(mermaidSource);
+            const pngBlob = await svgToPng(svgElement);
+            downloadPng(pngBlob);
+            console.log('[MMD Extension] Download: Mermaid diagram downloaded (editor mode)');
+            return;
+          }
+
+          // MODE 2: Viewer mode - convert already-rendered SVG or IMG with SVG data URI
+          console.log('[MMD Extension] Download: Viewer mode execution');
+          if (lastContextMenuTarget) {
+            const target = lastContextMenuTarget as HTMLElement;
+
+            // Handle IMG tag with SVG data URI
+            if (target.tagName === 'IMG') {
+              const imgElement = target as HTMLImageElement;
+              const src = imgElement.src || '';
+
+              if (src.startsWith('data:image/svg+xml')) {
+                console.log('[MMD Extension] Download: Converting IMG directly to PNG...');
+                const pngBlob = await imgToPng(imgElement);
+                downloadPng(pngBlob);
+                console.log('[MMD Extension] Download: Mermaid diagram downloaded (viewer IMG mode)');
+                return;
+              }
+            }
+
+            // Handle inline SVG element
+            const svgElement = target.closest('svg') || target.querySelector('svg');
+            if (svgElement) {
+              console.log('[MMD Extension] Download: Converting inline SVG to PNG...');
+              const pngBlob = await svgToPng(svgElement as SVGElement);
+              downloadPng(pngBlob);
+              console.log('[MMD Extension] Download: Mermaid diagram downloaded (viewer SVG mode)');
+              return;
+            }
+          }
+
+          console.error('[MMD Extension] Download: No Mermaid diagram found');
+        } catch (error) {
+          console.error('[MMD Extension] Download: Error converting Mermaid to PNG:', error);
+        }
+      }
+    });
+
+    console.log('[MMD Extension] Download command registered successfully');
+
+    // Add download to context menu
+    console.log('[MMD Extension] Adding download context menu item');
+    contextMenu.addItem({
+      command: downloadMermaidCommand,
+      selector: 'body',
+      rank: 11  // Right after copy command
+    });
+    console.log('[MMD Extension] Download context menu item added');
+
+    // Add download to command palette if available
+    if (palette) {
+      console.log('[MMD Extension] Adding download to command palette');
+      palette.addItem({
+        command: downloadMermaidCommand,
+        category: 'Markdown'
+      });
+      console.log('[MMD Extension] Download added to command palette');
+    }
+
+    console.log('[MMD Extension] ===== ACTIVATION COMPLETED =====');
+  }
+};
+
+export default plugin;

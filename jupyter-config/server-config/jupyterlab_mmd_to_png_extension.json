@@ -1,0 +1,7 @@
+{
+  "ServerApp": {
+    "jpserver_extensions": {
+      "jupyterlab_mmd_to_png_extension": true
+    }
+  }
+}
