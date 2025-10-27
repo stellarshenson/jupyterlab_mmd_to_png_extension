@@ -684,6 +684,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
     }
 
     console.log('[MMD Extension] ===== ACTIVATION COMPLETED =====');
+    console.log('JupyterLab extension jupyterlab_mmd_to_png_extension is activated!');
   }
 };
 
