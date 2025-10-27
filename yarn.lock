@@ -2553,7 +2553,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jupyterlab/settingregistry@npm:^4.4.10":
+"@jupyterlab/settingregistry@npm:^4.0.0, @jupyterlab/settingregistry@npm:^4.4.10":
   version: 4.4.10
   resolution: "@jupyterlab/settingregistry@npm:4.4.10"
   dependencies:
@@ -7636,6 +7636,7 @@ __metadata:
     "@jupyterlab/fileeditor": ^4.0.0
     "@jupyterlab/markdownviewer": ^4.0.0
     "@jupyterlab/services": ^7.0.0
+    "@jupyterlab/settingregistry": ^4.0.0
     "@jupyterlab/testutils": ^4.0.0
     "@types/d3": ^7.4.0
     "@types/dompurify": ^3.0.0

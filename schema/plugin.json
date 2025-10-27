@@ -1,0 +1,18 @@
+{
+  "title": "Mermaid to PNG Extension",
+  "description": "Settings for Mermaid diagram PNG export",
+  "jupyter.lab.setting-icon": "ui-components:image",
+  "jupyter.lab.setting-icon-label": "Mermaid to PNG",
+  "type": "object",
+  "properties": {
+    "targetDPI": {
+      "title": "Target DPI",
+      "description": "Resolution for exported PNG images (dots per inch). Higher values produce larger, higher-quality images suitable for printing. Standard values: 96 (screen), 150 (draft print), 300 (standard print), 600 (high-quality print), 1200 (professional print), 2400-3000 (ultra high-resolution).",
+      "type": "number",
+      "default": 600,
+      "minimum": 72,
+      "maximum": 3000
+    }
+  },
+  "additionalProperties": false
+}

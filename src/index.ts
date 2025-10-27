@@ -4,6 +4,7 @@ import {
 } from '@jupyterlab/application';
 
 import { ICommandPalette } from '@jupyterlab/apputils';
+import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { FileEditor } from '@jupyterlab/fileeditor';
 
 import mermaid from 'mermaid';
@@ -87,7 +88,7 @@ async function renderMermaidToSvg(source: string): Promise<SVGElement> {
 /**
  * Convert SVG element to PNG blob
  */
-async function svgToPng(svgElement: SVGElement, sourceImgElement?: HTMLImageElement): Promise<Blob> {
+async function svgToPng(svgElement: SVGElement, targetDPI: number = 600, sourceImgElement?: HTMLImageElement): Promise<Blob> {
   console.log('[MMD Extension] svgToPng - SVG element:', svgElement.tagName);
   console.log('[MMD Extension] svgToPng - width attr:', svgElement.getAttribute('width'));
   console.log('[MMD Extension] svgToPng - height attr:', svgElement.getAttribute('height'));
@@ -154,22 +155,26 @@ async function svgToPng(svgElement: SVGElement, sourceImgElement?: HTMLImageElem
 
   console.log('[MMD Extension] Final dimensions for canvas:', width, 'x', height);
 
-  // Create high-resolution canvas at 300 DPI
-  // Assuming source is 96 DPI (standard screen resolution), scale = 300/96 ≈ 3.125
+  // Create high-resolution canvas at target DPI
+  // Assuming source is 96 DPI (standard screen resolution), calculate scale factor
+  const sourceDPI = 96;
+  const scale = targetDPI / sourceDPI;
+  console.log('[MMD Extension] svgToPng - Target DPI:', targetDPI, 'Scale factor:', scale);
+
   const canvas = document.createElement('canvas');
-  const scale = 3.125; // 300 DPI (from 96 DPI source)
   canvas.width = width * scale;
   canvas.height = height * scale;
 
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { alpha: true });
   if (!ctx) {
     throw new Error('Failed to get canvas context');
   }
 
-  // Transparent background - canvas is transparent by default
+  // Configure high-quality rendering
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
 
-  // Scale for high resolution
-  ctx.scale(scale, scale);
+  // Transparent background - canvas is transparent by default
 
   // Convert SVG to data URL (using data URI instead of blob URL to avoid CORS/tainted canvas)
   const svgData = new XMLSerializer().serializeToString(svgElement);
@@ -184,8 +189,8 @@ async function svgToPng(svgElement: SVGElement, sourceImgElement?: HTMLImageElem
     img.src = dataUrl;
   });
 
-  // Draw image to canvas
-  ctx.drawImage(img, 0, 0);
+  // Draw image directly at scaled dimensions (no context scaling)
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
   // Convert canvas to PNG blob
   return new Promise((resolve, reject) => {
@@ -202,7 +207,7 @@ async function svgToPng(svgElement: SVGElement, sourceImgElement?: HTMLImageElem
 /**
  * Convert IMG element directly to PNG (simpler approach for data URIs)
  */
-async function imgToPng(imgElement: HTMLImageElement): Promise<Blob> {
+async function imgToPng(imgElement: HTMLImageElement, targetDPI: number = 600): Promise<Blob> {
   console.log('[MMD Extension] imgToPng - IMG naturalWidth:', imgElement.naturalWidth);
   console.log('[MMD Extension] imgToPng - IMG naturalHeight:', imgElement.naturalHeight);
   console.log('[MMD Extension] imgToPng - IMG width:', imgElement.width);
@@ -214,23 +219,29 @@ async function imgToPng(imgElement: HTMLImageElement): Promise<Blob> {
 
   console.log('[MMD Extension] imgToPng - Using dimensions:', width, 'x', height);
 
-  // Create high-resolution canvas at 300 DPI
-  // Assuming source is 96 DPI (standard screen resolution), scale = 300/96 ≈ 3.125
+  // Create high-resolution canvas at target DPI
+  // Assuming source is 96 DPI (standard screen resolution), calculate scale factor
+  const sourceDPI = 96;
+  const scale = targetDPI / sourceDPI;
+  console.log('[MMD Extension] imgToPng - Target DPI:', targetDPI, 'Scale factor:', scale);
+
   const canvas = document.createElement('canvas');
-  const scale = 3.125; // 300 DPI (from 96 DPI source)
   canvas.width = width * scale;
   canvas.height = height * scale;
 
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { alpha: true });
   if (!ctx) {
     throw new Error('Failed to get canvas context');
   }
 
+  // Configure high-quality rendering
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
   // Transparent background - no fill needed
 
-  // Scale and draw image
-  ctx.scale(scale, scale);
-  ctx.drawImage(imgElement, 0, 0, width, height);
+  // Draw image at scaled dimensions (no context scaling - draw directly at target size)
+  ctx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
 
   console.log('[MMD Extension] imgToPng - Canvas dimensions:', canvas.width, 'x', canvas.height);
 
@@ -256,6 +267,29 @@ async function copyPngToClipboard(blob: Blob): Promise<void> {
 }
 
 /**
+ * Generate filename for downloaded PNG based on source file
+ */
+function generateFilename(app: JupyterFrontEnd): string {
+  // Try to get current document name
+  const widget = app.shell.currentWidget;
+  let baseName = 'diagram';
+
+  if (widget) {
+    // Check for title property (most widgets have this)
+    const title = (widget as any)?.title?.label;
+    if (title) {
+      // Remove file extension
+      baseName = title.replace(/\.(md|markdown)$/i, '');
+    }
+  }
+
+  // Generate short UUID (8 characters)
+  const uuid = Math.random().toString(36).substring(2, 10);
+
+  return `mermaid-${baseName}-${uuid}.png`;
+}
+
+/**
  * Download PNG blob as file
  */
 function downloadPng(blob: Blob, filename: string = 'mermaid-diagram.png'): void {
@@ -277,9 +311,29 @@ const plugin: JupyterFrontEndPlugin<void> = {
   description:
     'Jupyterlab extension for markdown files with Mermaid diagrams to allow copying of mermaid diagrams as PNG images',
   autoStart: true,
-  optional: [ICommandPalette],
-  activate: (app: JupyterFrontEnd, palette: ICommandPalette | null) => {
+  optional: [ICommandPalette, ISettingRegistry],
+  activate: async (app: JupyterFrontEnd, palette: ICommandPalette | null, settingRegistry: ISettingRegistry | null) => {
     console.log('[MMD Extension] ===== ACTIVATION STARTED =====');
+
+    // Load settings
+    let targetDPI = 600; // Default value
+    if (settingRegistry) {
+      try {
+        const settings = await settingRegistry.load(plugin.id);
+        targetDPI = settings.get('targetDPI').composite as number;
+        console.log('[MMD Extension] Loaded target DPI from settings:', targetDPI);
+
+        // Listen for settings changes
+        settings.changed.connect(() => {
+          targetDPI = settings.get('targetDPI').composite as number;
+          console.log('[MMD Extension] Target DPI changed to:', targetDPI);
+        });
+      } catch (error) {
+        console.error('[MMD Extension] Failed to load settings:', error);
+      }
+    } else {
+      console.log('[MMD Extension] Settings registry not available, using default DPI:', targetDPI);
+    }
     console.log('[MMD Extension] App:', app);
     console.log('[MMD Extension] Palette:', palette);
     console.log('[MMD Extension] Mermaid available:', typeof mermaid);
@@ -378,7 +432,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
             console.log('[MMD Extension] Found Mermaid source, rendering...');
             const svgElement = await renderMermaidToSvg(mermaidSource);
-            const pngBlob = await svgToPng(svgElement);
+            const pngBlob = await svgToPng(svgElement, targetDPI);
             await copyPngToClipboard(pngBlob);
             console.log('[MMD Extension] Mermaid diagram copied to clipboard as PNG (editor mode)');
             return;
@@ -396,7 +450,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
               if (src.startsWith('data:image/svg+xml')) {
                 console.log('[MMD Extension] Converting IMG directly to PNG...');
-                const pngBlob = await imgToPng(imgElement);
+                const pngBlob = await imgToPng(imgElement, targetDPI);
                 await copyPngToClipboard(pngBlob);
                 console.log('[MMD Extension] Mermaid diagram copied to clipboard as PNG (viewer IMG mode)');
                 return;
@@ -407,7 +461,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
             const svgElement = target.closest('svg') || target.querySelector('svg');
             if (svgElement) {
               console.log('[MMD Extension] Converting inline SVG to PNG...');
-              const pngBlob = await svgToPng(svgElement as SVGElement);
+              const pngBlob = await svgToPng(svgElement as SVGElement, targetDPI);
               await copyPngToClipboard(pngBlob);
               console.log('[MMD Extension] Mermaid diagram copied to clipboard as PNG (viewer SVG mode)');
               return;
@@ -515,8 +569,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
             console.log('[MMD Extension] Download: Found Mermaid source, rendering...');
             const svgElement = await renderMermaidToSvg(mermaidSource);
-            const pngBlob = await svgToPng(svgElement);
-            downloadPng(pngBlob);
+            const pngBlob = await svgToPng(svgElement, targetDPI);
+            const filename = generateFilename(app);
+            console.log('[MMD Extension] Download: Generated filename:', filename);
+            downloadPng(pngBlob, filename);
             console.log('[MMD Extension] Download: Mermaid diagram downloaded (editor mode)');
             return;
           }
@@ -533,8 +589,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
               if (src.startsWith('data:image/svg+xml')) {
                 console.log('[MMD Extension] Download: Converting IMG directly to PNG...');
-                const pngBlob = await imgToPng(imgElement);
-                downloadPng(pngBlob);
+                const pngBlob = await imgToPng(imgElement, targetDPI);
+                const filename = generateFilename(app);
+                console.log('[MMD Extension] Download: Generated filename:', filename);
+                downloadPng(pngBlob, filename);
                 console.log('[MMD Extension] Download: Mermaid diagram downloaded (viewer IMG mode)');
                 return;
               }
@@ -544,8 +602,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
             const svgElement = target.closest('svg') || target.querySelector('svg');
             if (svgElement) {
               console.log('[MMD Extension] Download: Converting inline SVG to PNG...');
-              const pngBlob = await svgToPng(svgElement as SVGElement);
-              downloadPng(pngBlob);
+              const pngBlob = await svgToPng(svgElement as SVGElement, targetDPI);
+              const filename = generateFilename(app);
+              console.log('[MMD Extension] Download: Generated filename:', filename);
+              downloadPng(pngBlob, filename);
               console.log('[MMD Extension] Download: Mermaid diagram downloaded (viewer SVG mode)');
               return;
             }

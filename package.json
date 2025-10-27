@@ -1,6 +1,6 @@
 {
     "name": "jupyterlab_mmd_to_png_extension",
-    "version": "0.1.16",
+    "version": "0.1.19",
     "description": "Jupyterlab extension for markdown files with Mermaid diagrams to allow copying of mermaid diagrams as PNG images",
     "keywords": [
         "jupyter",
@@ -63,6 +63,7 @@
         "@jupyterlab/fileeditor": "^4.0.0",
         "@jupyterlab/markdownviewer": "^4.0.0",
         "@jupyterlab/services": "^7.0.0",
+        "@jupyterlab/settingregistry": "^4.0.0",
         "mermaid": "^10.6.0"
     },
     "devDependencies": {
@@ -115,7 +116,8 @@
             }
         },
         "extension": true,
-        "outputDir": "jupyterlab_mmd_to_png_extension/labextension"
+        "outputDir": "jupyterlab_mmd_to_png_extension/labextension",
+        "schemaDir": "schema"
     },
     "eslintIgnore": [
         "node_modules",
