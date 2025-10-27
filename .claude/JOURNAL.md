@@ -33,3 +33,6 @@ This journal tracks substantive work on documents, diagrams, and documentation c
 
 10. **Task - Fix Integration Test**: Fixed failing integration test for activation console message<br>
     **Result**: Added missing console.log statement (src/index.ts:687) that integration test expects: "JupyterLab extension jupyterlab_mmd_to_png_extension is activated!". Test was checking for this exact message in browser console logs to verify successful extension activation. Extension now properly signals activation completion for automated testing
+
+11. **Task - Remove Editor Context Menu**: Removed context menu items from editor view, keeping only in markdown viewer<br>
+    **Result**: Removed all editor mode functionality (getMermaidSourceAtCursor, isInMermaidBlock, renderMermaidToSvg functions). Removed editor mode checks from isEnabled() and execute() functions for both copy and download commands. Cleaned up unused imports (FileEditor, mermaid) and dependencies (@jupyterlab/fileeditor, @jupyterlab/codeeditor, @jupyterlab/markdownviewer, mermaid package). Changed context menu selector from 'body' to '.jp-RenderedMarkdown' for both commands. Context menu items now only appear when right-clicking on rendered Mermaid diagrams in markdown viewer, completely absent from file editor context menu

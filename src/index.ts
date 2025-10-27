@@ -5,85 +5,7 @@ import {
 
 import { ICommandPalette } from '@jupyterlab/apputils';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
-import { FileEditor } from '@jupyterlab/fileeditor';
 
-import mermaid from 'mermaid';
-
-// Log immediately on module load
-console.log('[MMD Extension] Module loaded, mermaid import:', typeof mermaid);
-
-/**
- * Extract Mermaid source from current cursor position in editor
- */
-function getMermaidSourceAtCursor(editor: FileEditor): string | null {
-  const model = editor.model;
-  if (!model) {
-    return null;
-  }
-
-  const cursor = editor.editor.getCursorPosition();
-  const text = model.sharedModel.getSource();
-  const lines = text.split('\n');
-
-  // Find the Mermaid code block containing the cursor
-  let inMermaidBlock = false;
-  let mermaidStart = -1;
-  let mermaidEnd = -1;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-
-    if (line.startsWith('```mermaid')) {
-      inMermaidBlock = true;
-      mermaidStart = i;
-    } else if (inMermaidBlock && line.startsWith('```')) {
-      mermaidEnd = i;
-
-      // Check if cursor is within this block
-      if (cursor.line >= mermaidStart && cursor.line <= mermaidEnd) {
-        // Extract Mermaid source (excluding fence markers)
-        const mermaidLines = lines.slice(mermaidStart + 1, mermaidEnd);
-        return mermaidLines.join('\n');
-      }
-
-      inMermaidBlock = false;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Check if current cursor position is in a Mermaid code block
- */
-function isInMermaidBlock(editor: FileEditor): boolean {
-  return getMermaidSourceAtCursor(editor) !== null;
-}
-
-/**
- * Render Mermaid source to SVG element
- */
-async function renderMermaidToSvg(source: string): Promise<SVGElement> {
-  // Initialize mermaid with configuration
-  mermaid.initialize({
-    startOnLoad: false,
-    theme: 'default',
-    securityLevel: 'loose'
-  });
-
-  // Generate unique ID for the diagram
-  const id = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-  // Render the diagram
-  const { svg } = await mermaid.render(id, source);
-
-  // Parse SVG string to element
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(svg, 'image/svg+xml');
-  const svgElement = doc.documentElement as unknown as SVGElement;
-
-  return svgElement;
-}
 
 /**
  * Convert SVG element to PNG blob
@@ -372,7 +294,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
     }
     console.log('[MMD Extension] App:', app);
     console.log('[MMD Extension] Palette:', palette);
-    console.log('[MMD Extension] Mermaid available:', typeof mermaid);
 
     const { commands, contextMenu } = app;
     console.log('[MMD Extension] Commands registry:', commands);
@@ -394,24 +315,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
       caption: 'Copy the Mermaid diagram at cursor as PNG image',
       isEnabled: () => {
         console.log('[MMD Extension] isEnabled called');
-        const widget = app.shell.currentWidget;
 
-        // MODE 1: Editor mode - check for FileEditor with cursor in Mermaid block
-        const candidate = (widget as any)?.content || widget;
-        if (candidate?.model && candidate?.editor?.getCursorPosition) {
-          console.log('[MMD Extension] Editor mode detected');
-          try {
-            const inBlock = isInMermaidBlock(candidate as FileEditor);
-            console.log('[MMD Extension] In Mermaid block:', inBlock);
-            if (inBlock) {
-              return true;
-            }
-          } catch (e) {
-            console.error('[MMD Extension] Error checking Mermaid block:', e);
-          }
-        }
-
-        // MODE 2: Viewer mode - check if right-clicked on SVG or IMG with SVG data URI
+        // Only enable in viewer mode - check if right-clicked on SVG or IMG with SVG data URI
         console.log('[MMD Extension] Checking viewer mode, last target:', lastContextMenuTarget);
         if (lastContextMenuTarget) {
           const target = lastContextMenuTarget as HTMLElement;
@@ -453,28 +358,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
       },
       execute: async () => {
         console.log('[MMD Extension] Execute called');
-        const widget = app.shell.currentWidget;
 
         try {
-          // MODE 1: Editor mode - extract source and render
-          const editor = (widget as any)?.content || widget;
-          if (editor?.model && editor?.editor?.getCursorPosition) {
-            console.log('[MMD Extension] Editor mode execution');
-            const mermaidSource = getMermaidSourceAtCursor(editor as FileEditor);
-            if (!mermaidSource) {
-              console.error('[MMD Extension] No Mermaid diagram found at cursor position');
-              return;
-            }
-
-            console.log('[MMD Extension] Found Mermaid source, rendering...');
-            const svgElement = await renderMermaidToSvg(mermaidSource);
-            const pngBlob = await svgToPng(svgElement, targetDPI);
-            await copyPngToClipboard(pngBlob);
-            console.log('[MMD Extension] Mermaid diagram copied to clipboard as PNG (editor mode)');
-            return;
-          }
-
-          // MODE 2: Viewer mode - convert already-rendered SVG or IMG with SVG data URI
+          // Viewer mode - convert already-rendered SVG or IMG with SVG data URI
           console.log('[MMD Extension] Viewer mode execution');
           if (lastContextMenuTarget) {
             const target = lastContextMenuTarget as HTMLElement;
@@ -513,11 +399,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
     console.log('[MMD Extension] Command registered successfully');
 
-    // Add to context menu once with broad selector - isEnabled() handles specifics
+    // Add to context menu only for rendered markdown content
     console.log('[MMD Extension] Adding context menu item');
     contextMenu.addItem({
       command: copyMermaidCommand,
-      selector: 'body',  // Broad selector, isEnabled() will filter
+      selector: '.jp-RenderedMarkdown',  // Only show in markdown viewer
       rank: 10
     });
     console.log('[MMD Extension] Context menu item added');
@@ -543,24 +429,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
       caption: 'Download the Mermaid diagram at cursor as PNG file',
       isEnabled: () => {
         console.log('[MMD Extension] Download isEnabled called');
-        const widget = app.shell.currentWidget;
 
-        // MODE 1: Editor mode - check for FileEditor with cursor in Mermaid block
-        const candidate = (widget as any)?.content || widget;
-        if (candidate?.model && candidate?.editor?.getCursorPosition) {
-          console.log('[MMD Extension] Download: Editor mode detected');
-          try {
-            const inBlock = isInMermaidBlock(candidate as FileEditor);
-            console.log('[MMD Extension] Download: In Mermaid block:', inBlock);
-            if (inBlock) {
-              return true;
-            }
-          } catch (e) {
-            console.error('[MMD Extension] Download: Error checking Mermaid block:', e);
-          }
-        }
-
-        // MODE 2: Viewer mode - check if right-clicked on SVG or IMG with SVG data URI
+        // Only enable in viewer mode - check if right-clicked on SVG or IMG with SVG data URI
         console.log('[MMD Extension] Download: Checking viewer mode, last target:', lastContextMenuTarget);
         if (lastContextMenuTarget) {
           const target = lastContextMenuTarget as HTMLElement;
@@ -590,30 +460,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
       },
       execute: async () => {
         console.log('[MMD Extension] Download execute called');
-        const widget = app.shell.currentWidget;
 
         try {
-          // MODE 1: Editor mode - extract source and render
-          const editor = (widget as any)?.content || widget;
-          if (editor?.model && editor?.editor?.getCursorPosition) {
-            console.log('[MMD Extension] Download: Editor mode execution');
-            const mermaidSource = getMermaidSourceAtCursor(editor as FileEditor);
-            if (!mermaidSource) {
-              console.error('[MMD Extension] Download: No Mermaid diagram found at cursor position');
-              return;
-            }
-
-            console.log('[MMD Extension] Download: Found Mermaid source, rendering...');
-            const svgElement = await renderMermaidToSvg(mermaidSource);
-            const pngBlob = await svgToPng(svgElement, targetDPI);
-            const filename = generateFilename(app, mermaidSource);
-            console.log('[MMD Extension] Download: Generated filename:', filename);
-            downloadPng(pngBlob, filename);
-            console.log('[MMD Extension] Download: Mermaid diagram downloaded (editor mode)');
-            return;
-          }
-
-          // MODE 2: Viewer mode - convert already-rendered SVG or IMG with SVG data URI
+          // Viewer mode - convert already-rendered SVG or IMG with SVG data URI
           console.log('[MMD Extension] Download: Viewer mode execution');
           if (lastContextMenuTarget) {
             const target = lastContextMenuTarget as HTMLElement;
@@ -664,11 +513,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
     console.log('[MMD Extension] Download command registered successfully');
 
-    // Add download to context menu
+    // Add download to context menu only for rendered markdown content
     console.log('[MMD Extension] Adding download context menu item');
     contextMenu.addItem({
       command: downloadMermaidCommand,
-      selector: 'body',
+      selector: '.jp-RenderedMarkdown',  // Only show in markdown viewer
       rank: 11  // Right after copy command
     });
     console.log('[MMD Extension] Download context menu item added');
