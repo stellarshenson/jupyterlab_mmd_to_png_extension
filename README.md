@@ -160,3 +160,4 @@ More information are provided within the [ui-tests](./ui-tests/README.md) README
 ### Packaging the extension
 
 See [RELEASE](RELEASE.md)
+# jupyterlab_mmd_to_png_extension
