@@ -3,6 +3,7 @@
 ![GitHub Actions](https://github.com/stellarshenson/jupyterlab_mmd_to_png_extension/actions/workflows/build.yml/badge.svg)
 [![npm version](https://badge.fury.io/js/jupyterlab_mmd_to_png_extension.svg)](https://www.npmjs.com/package/jupyterlab_mmd_to_png_extension)
 [![PyPI version](https://badge.fury.io/py/jupyterlab-mmd-to-png-extension.svg)](https://pypi.org/project/jupyterlab-mmd-to-png-extension/)
+[![Total PyPI downloads](https://static.pepy.tech/badge/jupyterlab-mmd-to-png-extension)](https://pepy.tech/project/jupyterlab-mmd-to-png-extension)
 ![PyPI downloads](https://img.shields.io/pypi/dm/jupyterlab-mmd-to-png-extension?label=PyPI%20downloads)
 ![JL4 Ready](https://img.shields.io/badge/Jupyterlab%204-ready-blue)
 
