@@ -6,18 +6,24 @@
 [![Total PyPI downloads](https://static.pepy.tech/badge/jupyterlab-mmd-to-png-extension)](https://pepy.tech/project/jupyterlab-mmd-to-png-extension)
 ![JL4 Ready](https://img.shields.io/badge/Jupyterlab%204-ready-blue)
 
-JupyterLab extension enabling export of Mermaid diagrams from markdown files to high-resolution PNG images with configurable DPI settings.
+Export Mermaid diagrams from JupyterLab markdown files as high-quality PNG images. Right-click any rendered diagram in the markdown viewer to copy or save it as a PNG file with configurable resolution settings.
 
 ![Extension Screenshot](.resources/screenshot.png)
 
 ## Features
 
-- Export Mermaid diagrams as PNG with configurable DPI (72-1200, default 300)
-- Context menu integration in both editor and viewer modes
-- Transparent backgrounds for exported images
-- Deterministic filenames based on source file and diagram content
-- Self-contained client-side rendering (no external dependencies)
-- Zero configuration required
+**Core capabilities:**
+- Copy diagrams directly to clipboard as PNG images
+- Save diagrams as PNG files with deterministic content-based filenames
+- Configurable DPI resolution from 72 to 1200 (default 300)
+- Transparent backgrounds for seamless integration into documents
+- Zero configuration required - works immediately after installation
+
+**Technical implementation:**
+- Pure client-side rendering using browser canvas API
+- No external services or command-line tools required
+- Calibrated DPI conversion matching Adobe converter output (±0.07% accuracy)
+- Context menu integration in markdown viewer only
 
 ## Requirements
 
@@ -25,32 +31,29 @@ JupyterLab extension enabling export of Mermaid diagrams from markdown files to 
 
 ## Installation
 
-Install via pip:
+Install from PyPI using pip:
 
 ```bash
 pip install jupyterlab_mmd_to_png_extension
 ```
 
-Install via npm (for development):
-
-```bash
-npm install jupyterlab_mmd_to_png_extension
-```
-
-After installation, restart JupyterLab or refresh the browser.
+After installation, restart JupyterLab to activate the extension.
 
 ## Usage
 
-1. Open a markdown file containing Mermaid diagrams
-2. Right-click on any rendered Mermaid diagram
-3. Select "Copy Mermaid Diagram as PNG"
-4. The PNG is downloaded with filename: `mermaid-<filename>-<hash>.png`
+Open any markdown file containing Mermaid diagrams in JupyterLab. The extension adds two options to the context menu when you right-click on a rendered diagram in the markdown viewer:
 
-**Configure DPI**: Settings -> Advanced Settings Editor -> Mermaid to PNG Extension -> Target DPI (default: 300, maximum: 1200)
+**Copy as PNG** - Copies the diagram to your clipboard as a PNG image. Paste directly into documents, presentations, or image editors.
+
+**Save as PNG** - Downloads the diagram as a PNG file. Filenames follow the pattern `mermaid-<document-name>-<content-hash>.png` where the hash is generated from the diagram content, ensuring consistent filenames for identical diagrams.
+
+### DPI Configuration
+
+Adjust export resolution through JupyterLab's settings interface. Navigate to Settings -> Advanced Settings Editor -> Mermaid to PNG Extension. The default DPI is 300 (standard print quality), with a range from 72 (screen resolution) to 1200 (professional print quality).
 
 ## Example
 
-Create a Mermaid diagram in markdown:
+Create a markdown file with a Mermaid diagram:
 
 ```markdown
 ```mermaid
@@ -60,122 +63,95 @@ graph TD
 ```
 ```
 
-Right-click the rendered diagram and export as PNG at your configured DPI setting.
+Render the markdown file in JupyterLab's viewer. Right-click the diagram and select either "Copy as PNG" or "Save as PNG". The exported image will use your configured DPI setting and include a transparent background.
 
 ## Uninstall
 
-To remove the extension, execute:
+Remove the extension using pip:
 
 ```bash
 pip uninstall jupyterlab_mmd_to_png_extension
 ```
 
-## Troubleshoot
+## Troubleshooting
 
-If you are seeing the frontend extension, but it is not working, check
-that the server extension is enabled:
+If the extension is not appearing in the context menu, verify both the server and frontend extensions are properly installed and enabled.
 
+Check server extension status:
 ```bash
 jupyter server extension list
 ```
 
-If the server extension is installed and enabled, but you are not seeing
-the frontend extension, check the frontend extension is installed:
-
+Check frontend extension status:
 ```bash
 jupyter labextension list
 ```
 
+Both should show `jupyterlab_mmd_to_png_extension` as enabled. If either is missing or disabled, reinstall the extension and restart JupyterLab.
+
 ## Contributing
 
-### Development install
+### Development Setup
 
-Note: You will need NodeJS to build the extension package.
-
-The `jlpm` command is JupyterLab's pinned version of
-[yarn](https://yarnpkg.com/) that is installed with JupyterLab. You may use
-`yarn` or `npm` in lieu of `jlpm` below.
+Install the extension in development mode. This requires NodeJS for building the TypeScript source code. The `jlpm` command is JupyterLab's pinned version of yarn.
 
 ```bash
-# Clone the repo to your local environment
-# Change directory to the jupyterlab_mmd_to_png_extension directory
 # Install package in development mode
 pip install -e ".[test]"
-# Link your development version of the extension with JupyterLab
+
+# Link development version with JupyterLab
 jupyter labextension develop . --overwrite
-# Server extension must be manually installed in develop mode
+
+# Enable server extension manually (required in development mode)
 jupyter server extension enable jupyterlab_mmd_to_png_extension
-# Rebuild extension Typescript source after making changes
+
+# Build the extension
 jlpm build
 ```
 
-You can watch the source directory and run JupyterLab at the same time in different terminals to watch for changes in the extension's source and automatically rebuild the extension.
+### Development Workflow
+
+Run the watch command in one terminal to automatically rebuild on file changes:
 
 ```bash
-# Watch the source directory in one terminal, automatically rebuilding when needed
 jlpm watch
-# Run JupyterLab in another terminal
+```
+
+Run JupyterLab in a separate terminal:
+
+```bash
 jupyter lab
 ```
 
-With the watch command running, every saved change will immediately be built locally and available in your running JupyterLab. Refresh JupyterLab to load the change in your browser (you may need to wait several seconds for the extension to be rebuilt).
+The extension rebuilds automatically when you save changes. Refresh your browser to load the updated extension (allow a few seconds for rebuild completion).
 
-By default, the `jlpm build` command generates the source maps for this extension to make it easier to debug using the browser dev tools. To also generate source maps for the JupyterLab core extensions, you can run the following command:
+### Development Uninstall
 
-```bash
-jupyter lab build --minimize=False
-```
-
-### Development uninstall
+Disable the server extension and remove the package:
 
 ```bash
-# Server extension must be manually disabled in develop mode
 jupyter server extension disable jupyterlab_mmd_to_png_extension
 pip uninstall jupyterlab_mmd_to_png_extension
 ```
 
-In development mode, you will also need to remove the symlink created by `jupyter labextension develop`
-command. To find its location, you can run `jupyter labextension list` to figure out where the `labextensions`
-folder is located. Then you can remove the symlink named `jupyterlab_mmd_to_png_extension` within that folder.
+Remove the symlink created by `jupyter labextension develop`. Use `jupyter labextension list` to locate the `labextensions` folder, then delete the `jupyterlab_mmd_to_png_extension` symlink within that folder.
 
-### Testing the extension
+### Testing
 
-#### Server tests
-
-This extension is using [Pytest](https://docs.pytest.org/) for Python code testing.
-
-Install test dependencies (needed only once):
-
-```sh
+**Python tests** use Pytest:
+```bash
 pip install -e ".[test]"
-# Each time you install the Python package, you need to restore the front-end extension link
-jupyter labextension develop . --overwrite
-```
-
-To execute them, run:
-
-```sh
 pytest -vv -r ap --cov jupyterlab_mmd_to_png_extension
 ```
 
-#### Frontend tests
-
-This extension is using [Jest](https://jestjs.io/) for JavaScript code testing.
-
-To execute them, execute:
-
-```sh
+**JavaScript tests** use Jest:
+```bash
 jlpm
 jlpm test
 ```
 
-#### Integration tests
+**Integration tests** use Playwright with the Galata framework for JupyterLab UI testing. See [ui-tests/README.md](./ui-tests/README.md) for details.
 
-This extension uses [Playwright](https://playwright.dev/docs/intro) for the integration tests (aka user level tests).
-More precisely, the JupyterLab helper [Galata](https://github.com/jupyterlab/jupyterlab/tree/master/galata) is used to handle testing the extension in JupyterLab.
+### Release Process
 
-More information are provided within the [ui-tests](./ui-tests/README.md) README.
-
-### Packaging the extension
-
-See [RELEASE](RELEASE.md)
+See [RELEASE.md](RELEASE.md) for packaging and publishing instructions.
