@@ -1,10 +1,11 @@
 # JupyterLab Mermaid to PNG Extension
 
-![GitHub Actions](https://github.com/stellarshenson/jupyterlab_mmd_to_png_extension/actions/workflows/build.yml/badge.svg)
-[![npm version](https://badge.fury.io/js/jupyterlab_mmd_to_png_extension.svg)](https://www.npmjs.com/package/jupyterlab_mmd_to_png_extension)
-[![PyPI version](https://badge.fury.io/py/jupyterlab-mmd-to-png-extension.svg)](https://pypi.org/project/jupyterlab-mmd-to-png-extension/)
+[![GitHub Actions](https://github.com/stellarshenson/jupyterlab_mmd_to_png_extension/actions/workflows/build.yml/badge.svg)](https://github.com/stellarshenson/jupyterlab_mmd_to_png_extension/actions/workflows/build.yml)
+[![npm version](https://img.shields.io/npm/v/jupyterlab_mmd_to_png_extension.svg)](https://www.npmjs.com/package/jupyterlab_mmd_to_png_extension)
+[![PyPI version](https://img.shields.io/pypi/v/jupyterlab-mmd-to-png-extension.svg)](https://pypi.org/project/jupyterlab-mmd-to-png-extension/)
 [![Total PyPI downloads](https://static.pepy.tech/badge/jupyterlab-mmd-to-png-extension)](https://pepy.tech/project/jupyterlab-mmd-to-png-extension)
-![JL4 Ready](https://img.shields.io/badge/Jupyterlab%204-ready-blue)
+[![JupyterLab 4](https://img.shields.io/badge/JupyterLab-4-orange.svg)](https://jupyterlab.readthedocs.io/en/stable/)
+[![Brought To You By KOLOMOLO](https://img.shields.io/badge/Brought%20To%20You%20By-KOLOMOLO-00ffff?style=flat)](https://kolomolo.com)
 
 Export Mermaid diagrams from JupyterLab markdown files as high-quality PNG images. Right-click any rendered diagram in the markdown viewer to copy or save it as a PNG file with configurable resolution settings.
 
