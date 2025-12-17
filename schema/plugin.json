@@ -13,18 +13,18 @@
       "minimum": 72,
       "maximum": 1200
     },
-    "transparentBackground": {
-      "title": "Transparent Background",
-      "description": "Export PNG images with transparent background. When disabled, uses white background.",
-      "type": "boolean",
-      "default": true
-    },
-    "mermaidTheme": {
-      "title": "Mermaid Theme",
-      "description": "Theme for Mermaid diagram rendering. Leave empty to use notebook theme (recommended). Options: default, dark, forest, neutral, base.",
+    "backgroundColor": {
+      "title": "Background Color",
+      "description": "Background color for exported PNG images. Select 'custom' to specify a hex color.",
       "type": "string",
-      "default": "",
-      "enum": ["", "default", "dark", "forest", "neutral", "base"]
+      "default": "transparent",
+      "enum": ["transparent", "white", "black", "custom"]
+    },
+    "customBackgroundColor": {
+      "title": "Custom Background Color",
+      "description": "Hex color code for custom background (e.g., #ff0000 for red). Only used when Background Color is set to 'custom'.",
+      "type": "string",
+      "default": "#ffffff"
     }
   },
   "additionalProperties": false
