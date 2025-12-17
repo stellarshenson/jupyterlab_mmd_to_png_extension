@@ -10,7 +10,7 @@ import { ISettingRegistry } from '@jupyterlab/settingregistry';
 /**
  * Convert SVG element to PNG blob
  */
-async function svgToPng(svgElement: SVGElement, targetDPI: number = 600, sourceImgElement?: HTMLImageElement): Promise<Blob> {
+async function svgToPng(svgElement: SVGElement, targetDPI: number = 600, transparentBackground: boolean = true, sourceImgElement?: HTMLImageElement): Promise<Blob> {
   // console.log('[MMD Extension] svgToPng - SVG element:', svgElement.tagName);
   // console.log('[MMD Extension] svgToPng - width attr:', svgElement.getAttribute('width'));
   // console.log('[MMD Extension] svgToPng - height attr:', svgElement.getAttribute('height'));
@@ -107,7 +107,11 @@ async function svgToPng(svgElement: SVGElement, targetDPI: number = 600, sourceI
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  // Transparent background - canvas is transparent by default
+  // Fill background if not transparent
+  if (!transparentBackground) {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 
   // Convert SVG to data URL (using data URI instead of blob URL to avoid CORS/tainted canvas)
   const svgData = new XMLSerializer().serializeToString(svgElement);
@@ -140,7 +144,7 @@ async function svgToPng(svgElement: SVGElement, targetDPI: number = 600, sourceI
 /**
  * Convert IMG element directly to PNG (simpler approach for data URIs)
  */
-async function imgToPng(imgElement: HTMLImageElement, targetDPI: number = 600): Promise<Blob> {
+async function imgToPng(imgElement: HTMLImageElement, targetDPI: number = 600, transparentBackground: boolean = true): Promise<Blob> {
   // console.log('[MMD Extension] imgToPng - IMG naturalWidth:', imgElement.naturalWidth);
   // console.log('[MMD Extension] imgToPng - IMG naturalHeight:', imgElement.naturalHeight);
   // console.log('[MMD Extension] imgToPng - IMG width:', imgElement.width);
@@ -182,7 +186,11 @@ async function imgToPng(imgElement: HTMLImageElement, targetDPI: number = 600): 
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  // Transparent background - no fill needed
+  // Fill background if not transparent
+  if (!transparentBackground) {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 
   // Draw image at scaled dimensions (no context scaling - draw directly at target size)
   ctx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
@@ -274,24 +282,32 @@ const plugin: JupyterFrontEndPlugin<void> = {
     // console.log('[MMD Extension] ===== ACTIVATION STARTED =====');
 
     // Load settings
-    let targetDPI = 600; // Default value
+    let targetDPI = 300; // Default value
+    let transparentBackground = true; // Default value
+    let mermaidTheme = ''; // Default value (use notebook theme)
     if (settingRegistry) {
       try {
         const settings = await settingRegistry.load(plugin.id);
         targetDPI = settings.get('targetDPI').composite as number;
-        // console.log('[MMD Extension] Loaded target DPI from settings:', targetDPI);
+        transparentBackground = settings.get('transparentBackground').composite as boolean;
+        mermaidTheme = settings.get('mermaidTheme').composite as string;
+        // console.log('[MMD Extension] Loaded settings - DPI:', targetDPI, 'transparent:', transparentBackground, 'theme:', mermaidTheme);
 
         // Listen for settings changes
         settings.changed.connect(() => {
           targetDPI = settings.get('targetDPI').composite as number;
-          // console.log('[MMD Extension] Target DPI changed to:', targetDPI);
+          transparentBackground = settings.get('transparentBackground').composite as boolean;
+          mermaidTheme = settings.get('mermaidTheme').composite as string;
+          // console.log('[MMD Extension] Settings changed - DPI:', targetDPI, 'transparent:', transparentBackground, 'theme:', mermaidTheme);
         });
       } catch (error) {
         console.error('[MMD Extension] Failed to load settings:', error);
       }
     } else {
-      // console.log('[MMD Extension] Settings registry not available, using default DPI:', targetDPI);
+      // console.log('[MMD Extension] Settings registry not available, using defaults');
     }
+    // mermaidTheme is reserved for future use (diagram re-rendering)
+    void mermaidTheme;
     // console.log('[MMD Extension] App:', app);
     // console.log('[MMD Extension] Palette:', palette);
 
@@ -372,7 +388,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
               if (src.startsWith('data:image/svg+xml')) {
                 // console.log('[MMD Extension] Converting IMG directly to PNG...');
-                const pngBlob = await imgToPng(imgElement, targetDPI);
+                const pngBlob = await imgToPng(imgElement, targetDPI, transparentBackground);
                 await copyPngToClipboard(pngBlob);
                 // console.log('[MMD Extension] Mermaid diagram copied to clipboard as PNG (viewer IMG mode)');
                 return;
@@ -383,7 +399,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
             const svgElement = target.closest('svg') || target.querySelector('svg');
             if (svgElement) {
               // console.log('[MMD Extension] Converting inline SVG to PNG...');
-              const pngBlob = await svgToPng(svgElement as SVGElement, targetDPI);
+              const pngBlob = await svgToPng(svgElement as SVGElement, targetDPI, transparentBackground);
               await copyPngToClipboard(pngBlob);
               // console.log('[MMD Extension] Mermaid diagram copied to clipboard as PNG (viewer SVG mode)');
               return;
@@ -476,7 +492,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
                 // Extract SVG content for hashing
                 const svgData = decodeURIComponent(src.replace('data:image/svg+xml,', ''));
 
-                const pngBlob = await imgToPng(imgElement, targetDPI);
+                const pngBlob = await imgToPng(imgElement, targetDPI, transparentBackground);
                 const filename = generateFilename(app, svgData);
                 // console.log('[MMD Extension] Download: Generated filename:', filename);
                 downloadPng(pngBlob, filename);
@@ -493,7 +509,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
               // Serialize SVG for hashing
               const svgData = new XMLSerializer().serializeToString(svgElement as SVGElement);
 
-              const pngBlob = await svgToPng(svgElement as SVGElement, targetDPI);
+              const pngBlob = await svgToPng(svgElement as SVGElement, targetDPI, transparentBackground);
               const filename = generateFilename(app, svgData);
               // console.log('[MMD Extension] Download: Generated filename:', filename);
               downloadPng(pngBlob, filename);

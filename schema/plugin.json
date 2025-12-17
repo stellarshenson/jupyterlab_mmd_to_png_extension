@@ -12,6 +12,19 @@
       "default": 300,
       "minimum": 72,
       "maximum": 1200
+    },
+    "transparentBackground": {
+      "title": "Transparent Background",
+      "description": "Export PNG images with transparent background. When disabled, uses white background.",
+      "type": "boolean",
+      "default": true
+    },
+    "mermaidTheme": {
+      "title": "Mermaid Theme",
+      "description": "Theme for Mermaid diagram rendering. Leave empty to use notebook theme (recommended). Options: default, dark, forest, neutral, base.",
+      "type": "string",
+      "default": "",
+      "enum": ["", "default", "dark", "forest", "neutral", "base"]
     }
   },
   "additionalProperties": false
