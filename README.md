@@ -7,6 +7,15 @@
 [![JupyterLab 4](https://img.shields.io/badge/JupyterLab-4-orange.svg)](https://jupyterlab.readthedocs.io/en/stable/)
 [![Brought To You By KOLOMOLO](https://img.shields.io/badge/Brought%20To%20You%20By-KOLOMOLO-00ffff?style=flat)](https://kolomolo.com)
 
+> [!WARNING]
+> **This extension has been superseded by [jupyterlab_export_svg_as_png_extension](https://github.com/stellarshenson/jupyterlab_export_svg_as_png_extension).**
+>
+> The new extension handles Mermaid diagrams and any other SVG content in JupyterLab (SVG cell outputs, markdown, HTML rendered content) with a single unified context menu. It also adds theme-aware rendering that resolves `@media (prefers-color-scheme)` CSS based on the active JupyterLab theme.
+>
+> To migrate: `pip uninstall jupyterlab_mmd_to_png_extension && pip install jupyterlab_export_svg_as_png_extension`
+>
+> This repository is kept for historical reference. No new features will be added here.
+
 > [!TIP]
 > This extension is part of the [stellars_jupyterlab_extensions](https://github.com/stellarshenson/stellars_jupyterlab_extensions) metapackage. Install all Stellars extensions at once: `pip install stellars_jupyterlab_extensions`
 

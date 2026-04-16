@@ -1,10 +1,21 @@
+import warnings
+
+warnings.warn(
+    "jupyterlab_mmd_to_png_extension is deprecated and has been superseded by "
+    "jupyterlab_export_svg_as_png_extension, which handles Mermaid diagrams "
+    "along with any other SVG content in JupyterLab. "
+    "Install the replacement: pip install jupyterlab_export_svg_as_png_extension. "
+    "See https://github.com/stellarshenson/jupyterlab_export_svg_as_png_extension",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 try:
     from ._version import __version__
 except ImportError:
     # Fallback when using the package in dev mode without installing
     # in editable mode with pip. It is highly recommended to install
     # the package from a stable release or in editable mode: https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs
-    import warnings
     warnings.warn("Importing 'jupyterlab_mmd_to_png_extension' outside a proper installation.")
     __version__ = "dev"
 from .handlers import setup_handlers
