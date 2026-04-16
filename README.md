@@ -26,6 +26,7 @@ Export Mermaid diagrams from JupyterLab markdown files as high-quality PNG image
 ## Features
 
 **Core capabilities:**
+
 - Copy diagrams directly to clipboard as PNG images
 - Save diagrams as PNG files with deterministic content-based filenames
 - Configurable DPI resolution from 72 to 1200 (default 300)
@@ -33,6 +34,7 @@ Export Mermaid diagrams from JupyterLab markdown files as high-quality PNG image
 - Zero configuration required - works immediately after installation
 
 **Technical implementation:**
+
 - Pure client-side rendering using browser canvas API
 - No external services or command-line tools required
 - Calibrated DPI conversion matching Adobe converter output (±0.07% accuracy)
@@ -68,13 +70,13 @@ Adjust export resolution through JupyterLab's settings interface. Navigate to Se
 
 Create a markdown file with a Mermaid diagram:
 
-```markdown
+````markdown
 ```mermaid
 graph TD
     A[Start] -> B[Process]
     B -> C[End]
 ```
-```
+````
 
 Render the markdown file in JupyterLab's viewer. Right-click the diagram and select either "Copy as PNG" or "Save as PNG". The exported image will use your configured DPI setting and include a transparent background.
 
@@ -91,11 +93,13 @@ pip uninstall jupyterlab_mmd_to_png_extension
 If the extension is not appearing in the context menu, verify both the server and frontend extensions are properly installed and enabled.
 
 Check server extension status:
+
 ```bash
 jupyter server extension list
 ```
 
 Check frontend extension status:
+
 ```bash
 jupyter labextension list
 ```
@@ -152,12 +156,14 @@ Remove the symlink created by `jupyter labextension develop`. Use `jupyter labex
 ### Testing
 
 **Python tests** use Pytest:
+
 ```bash
 pip install -e ".[test]"
 pytest -vv -r ap --cov jupyterlab_mmd_to_png_extension
 ```
 
 **JavaScript tests** use Jest:
+
 ```bash
 jlpm
 jlpm test

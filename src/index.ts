@@ -6,11 +6,15 @@ import {
 import { ICommandPalette } from '@jupyterlab/apputils';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 
-
 /**
  * Convert SVG element to PNG blob
  */
-async function svgToPng(svgElement: SVGElement, targetDPI: number = 600, backgroundColor: string = 'transparent', sourceImgElement?: HTMLImageElement): Promise<Blob> {
+async function svgToPng(
+  svgElement: SVGElement,
+  targetDPI: number = 600,
+  backgroundColor: string = 'transparent',
+  sourceImgElement?: HTMLImageElement
+): Promise<Blob> {
   // console.log('[MMD Extension] svgToPng - SVG element:', svgElement.tagName);
   // console.log('[MMD Extension] svgToPng - width attr:', svgElement.getAttribute('width'));
   // console.log('[MMD Extension] svgToPng - height attr:', svgElement.getAttribute('height'));
@@ -29,7 +33,11 @@ async function svgToPng(svgElement: SVGElement, targetDPI: number = 600, backgro
   let height = 600;
 
   // If we have the source IMG element, use its natural dimensions (most reliable for viewer mode)
-  if (sourceImgElement && sourceImgElement.naturalWidth && sourceImgElement.naturalHeight) {
+  if (
+    sourceImgElement &&
+    sourceImgElement.naturalWidth &&
+    sourceImgElement.naturalHeight
+  ) {
     width = sourceImgElement.naturalWidth;
     height = sourceImgElement.naturalHeight;
     // console.log('[MMD Extension] Using IMG naturalWidth/Height:', width, 'x', height);
@@ -144,7 +152,11 @@ async function svgToPng(svgElement: SVGElement, targetDPI: number = 600, backgro
 /**
  * Convert IMG element directly to PNG (simpler approach for data URIs)
  */
-async function imgToPng(imgElement: HTMLImageElement, targetDPI: number = 600, backgroundColor: string = 'transparent'): Promise<Blob> {
+async function imgToPng(
+  imgElement: HTMLImageElement,
+  targetDPI: number = 600,
+  backgroundColor: string = 'transparent'
+): Promise<Blob> {
   // console.log('[MMD Extension] imgToPng - IMG naturalWidth:', imgElement.naturalWidth);
   // console.log('[MMD Extension] imgToPng - IMG naturalHeight:', imgElement.naturalHeight);
   // console.log('[MMD Extension] imgToPng - IMG width:', imgElement.width);
@@ -225,7 +237,7 @@ function simpleHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32bit integer
   }
   // Convert to base36 and take first 8 characters
@@ -258,7 +270,10 @@ function generateFilename(app: JupyterFrontEnd, content: string): string {
 /**
  * Download PNG blob as file
  */
-function downloadPng(blob: Blob, filename: string = 'mermaid-diagram.png'): void {
+function downloadPng(
+  blob: Blob,
+  filename: string = 'mermaid-diagram.png'
+): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -278,7 +293,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
     'Jupyterlab extension for markdown files with Mermaid diagrams to allow copying of mermaid diagrams as PNG images',
   autoStart: true,
   optional: [ICommandPalette, ISettingRegistry],
-  activate: async (app: JupyterFrontEnd, palette: ICommandPalette | null, settingRegistry: ISettingRegistry | null) => {
+  activate: async (
+    app: JupyterFrontEnd,
+    palette: ICommandPalette | null,
+    settingRegistry: ISettingRegistry | null
+  ) => {
     // console.log('[MMD Extension] ===== ACTIVATION STARTED =====');
 
     // Load settings
@@ -286,12 +305,19 @@ const plugin: JupyterFrontEndPlugin<void> = {
     let backgroundColor = 'transparent'; // Default value
 
     // Helper to resolve background color from settings
-    const resolveBackgroundColor = (bgType: string, customColor: string): string => {
+    const resolveBackgroundColor = (
+      bgType: string,
+      customColor: string
+    ): string => {
       switch (bgType) {
-        case 'white': return '#ffffff';
-        case 'black': return '#000000';
-        case 'custom': return customColor;
-        default: return 'transparent';
+        case 'white':
+          return '#ffffff';
+        case 'black':
+          return '#000000';
+        case 'custom':
+          return customColor;
+        default:
+          return 'transparent';
       }
     };
 
@@ -300,7 +326,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
         const settings = await settingRegistry.load(plugin.id);
         targetDPI = settings.get('targetDPI').composite as number;
         const bgType = settings.get('backgroundColor').composite as string;
-        const customBgColor = settings.get('customBackgroundColor').composite as string;
+        const customBgColor = settings.get('customBackgroundColor')
+          .composite as string;
         backgroundColor = resolveBackgroundColor(bgType, customBgColor);
         // console.log('[MMD Extension] Loaded settings - DPI:', targetDPI, 'backgroundColor:', backgroundColor);
 
@@ -308,7 +335,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
         settings.changed.connect(() => {
           targetDPI = settings.get('targetDPI').composite as number;
           const bgType = settings.get('backgroundColor').composite as string;
-          const customBgColor = settings.get('customBackgroundColor').composite as string;
+          const customBgColor = settings.get('customBackgroundColor')
+            .composite as string;
           backgroundColor = resolveBackgroundColor(bgType, customBgColor);
           // console.log('[MMD Extension] Settings changed - DPI:', targetDPI, 'backgroundColor:', backgroundColor);
         });
@@ -362,7 +390,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
           }
 
           // Check if target is inline SVG or contains/is contained by SVG
-          const svgElement = target.closest('svg') || target.querySelector('svg');
+          const svgElement =
+            target.closest('svg') || target.querySelector('svg');
           // console.log('[MMD Extension] Found inline SVG in viewer:', !!svgElement);
 
           if (svgElement) {
@@ -371,9 +400,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
             // console.log('[MMD Extension] SVG closest .jp-RenderedMarkdown:', !!svgElement.closest('.jp-RenderedMarkdown'));
 
             // Check if it's a Mermaid diagram (has mermaid-related attributes or classes)
-            const isMermaid = svgElement.id?.includes('mermaid') ||
-                             svgElement.getAttribute('aria-roledescription') === 'mermaid' ||
-                             svgElement.closest('.jp-RenderedMarkdown') !== null;
+            const isMermaid =
+              svgElement.id?.includes('mermaid') ||
+              svgElement.getAttribute('aria-roledescription') === 'mermaid' ||
+              svgElement.closest('.jp-RenderedMarkdown') !== null;
             // console.log('[MMD Extension] Is Mermaid SVG:', isMermaid);
             return isMermaid;
           }
@@ -398,7 +428,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
               if (src.startsWith('data:image/svg+xml')) {
                 // console.log('[MMD Extension] Converting IMG directly to PNG...');
-                const pngBlob = await imgToPng(imgElement, targetDPI, backgroundColor);
+                const pngBlob = await imgToPng(
+                  imgElement,
+                  targetDPI,
+                  backgroundColor
+                );
                 await copyPngToClipboard(pngBlob);
                 // console.log('[MMD Extension] Mermaid diagram copied to clipboard as PNG (viewer IMG mode)');
                 return;
@@ -406,10 +440,15 @@ const plugin: JupyterFrontEndPlugin<void> = {
             }
 
             // Handle inline SVG element
-            const svgElement = target.closest('svg') || target.querySelector('svg');
+            const svgElement =
+              target.closest('svg') || target.querySelector('svg');
             if (svgElement) {
               // console.log('[MMD Extension] Converting inline SVG to PNG...');
-              const pngBlob = await svgToPng(svgElement as SVGElement, targetDPI, backgroundColor);
+              const pngBlob = await svgToPng(
+                svgElement as SVGElement,
+                targetDPI,
+                backgroundColor
+              );
               await copyPngToClipboard(pngBlob);
               // console.log('[MMD Extension] Mermaid diagram copied to clipboard as PNG (viewer SVG mode)');
               return;
@@ -418,7 +457,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
           console.error('[MMD Extension] No Mermaid diagram found');
         } catch (error) {
-          console.error('[MMD Extension] Error converting Mermaid to PNG:', error);
+          console.error(
+            '[MMD Extension] Error converting Mermaid to PNG:',
+            error
+          );
         }
       }
     });
@@ -429,7 +471,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
     // console.log('[MMD Extension] Adding context menu item');
     contextMenu.addItem({
       command: copyMermaidCommand,
-      selector: '.jp-RenderedMarkdown',  // Only show in markdown viewer
+      selector: '.jp-RenderedMarkdown', // Only show in markdown viewer
       rank: 10
     });
     // console.log('[MMD Extension] Context menu item added');
@@ -470,11 +512,13 @@ const plugin: JupyterFrontEndPlugin<void> = {
           }
 
           // Check if target is inline SVG or contains/is contained by SVG
-          const svgElement = target.closest('svg') || target.querySelector('svg');
+          const svgElement =
+            target.closest('svg') || target.querySelector('svg');
           if (svgElement) {
-            const isMermaid = svgElement.id?.includes('mermaid') ||
-                             svgElement.getAttribute('aria-roledescription') === 'mermaid' ||
-                             svgElement.closest('.jp-RenderedMarkdown') !== null;
+            const isMermaid =
+              svgElement.id?.includes('mermaid') ||
+              svgElement.getAttribute('aria-roledescription') === 'mermaid' ||
+              svgElement.closest('.jp-RenderedMarkdown') !== null;
             return isMermaid;
           }
         }
@@ -500,9 +544,15 @@ const plugin: JupyterFrontEndPlugin<void> = {
                 // console.log('[MMD Extension] Download: Converting IMG directly to PNG...');
 
                 // Extract SVG content for hashing
-                const svgData = decodeURIComponent(src.replace('data:image/svg+xml,', ''));
+                const svgData = decodeURIComponent(
+                  src.replace('data:image/svg+xml,', '')
+                );
 
-                const pngBlob = await imgToPng(imgElement, targetDPI, backgroundColor);
+                const pngBlob = await imgToPng(
+                  imgElement,
+                  targetDPI,
+                  backgroundColor
+                );
                 const filename = generateFilename(app, svgData);
                 // console.log('[MMD Extension] Download: Generated filename:', filename);
                 downloadPng(pngBlob, filename);
@@ -512,14 +562,21 @@ const plugin: JupyterFrontEndPlugin<void> = {
             }
 
             // Handle inline SVG element
-            const svgElement = target.closest('svg') || target.querySelector('svg');
+            const svgElement =
+              target.closest('svg') || target.querySelector('svg');
             if (svgElement) {
               // console.log('[MMD Extension] Download: Converting inline SVG to PNG...');
 
               // Serialize SVG for hashing
-              const svgData = new XMLSerializer().serializeToString(svgElement as SVGElement);
+              const svgData = new XMLSerializer().serializeToString(
+                svgElement as SVGElement
+              );
 
-              const pngBlob = await svgToPng(svgElement as SVGElement, targetDPI, backgroundColor);
+              const pngBlob = await svgToPng(
+                svgElement as SVGElement,
+                targetDPI,
+                backgroundColor
+              );
               const filename = generateFilename(app, svgData);
               // console.log('[MMD Extension] Download: Generated filename:', filename);
               downloadPng(pngBlob, filename);
@@ -530,7 +587,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
           console.error('[MMD Extension] Download: No Mermaid diagram found');
         } catch (error) {
-          console.error('[MMD Extension] Download: Error converting Mermaid to PNG:', error);
+          console.error(
+            '[MMD Extension] Download: Error converting Mermaid to PNG:',
+            error
+          );
         }
       }
     });
@@ -541,8 +601,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
     // console.log('[MMD Extension] Adding download context menu item');
     contextMenu.addItem({
       command: downloadMermaidCommand,
-      selector: '.jp-RenderedMarkdown',  // Only show in markdown viewer
-      rank: 11  // Right after copy command
+      selector: '.jp-RenderedMarkdown', // Only show in markdown viewer
+      rank: 11 // Right after copy command
     });
     // console.log('[MMD Extension] Download context menu item added');
 
@@ -557,7 +617,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
     }
 
     // console.log('[MMD Extension] ===== ACTIVATION COMPLETED =====');
-    console.log('JupyterLab extension jupyterlab_mmd_to_png_extension is activated!');
+    console.log(
+      'JupyterLab extension jupyterlab_mmd_to_png_extension is activated!'
+    );
   }
 };
 

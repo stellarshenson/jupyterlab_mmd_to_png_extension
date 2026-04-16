@@ -92,7 +92,7 @@ You should see `jupyterlab_mmd_to_png_extension` in the list.
 2. Create or open a markdown file (.md)
 3. Add a Mermaid diagram:
 
-```markdown
+````markdown
 # Test Mermaid Diagram
 
 ```mermaid
@@ -100,7 +100,9 @@ graph TD
     A[Start] -> B[Process]
     B -> C[End]
 ```
-```
+````
+
+````
 
 4. Place your cursor inside the Mermaid code block
 5. Right-click to open context menu
@@ -113,7 +115,7 @@ graph TD
 
 ```bash
 pytest -vv -r ap --cov jupyterlab_mmd_to_png_extension
-```
+````
 
 ### TypeScript tests
 
